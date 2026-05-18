@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify
 
 from database.db import mysql
-
 from services.fraud_engine import analyze_claim
 
 claims_bp = Blueprint("claims", __name__)
+
 
 @claims_bp.route("/claims", methods=["POST"])
 def create_claim():
@@ -13,12 +13,20 @@ def create_claim():
 
         data = request.json
 
+        # Validate request body
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
+
+        # Run fraud analysis
         result = analyze_claim(data)
 
         cursor = mysql.connection.cursor()
 
-        # INSERT CLAIM
-        cursor.execute("""
+        # Insert into claims table
+        insert_claim_query = """
 
         INSERT INTO claims (
 
@@ -36,28 +44,33 @@ def create_claim():
 
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
 
-        """, (
+        """
 
-            data["patient_id"],
-            data["provider_id"],
-            data["amount"],
-            data["diagnosis"],
-            data["procedure_code"],
-            result["risk_score"],
-            result["risk_level"],
+        claim_values = (
+
+            data.get("patient_id"),
+            data.get("provider_id"),
+            data.get("amount"),
+            data.get("diagnosis"),
+            data.get("procedure_code"),
+            result.get("risk_score"),
+            result.get("risk_level"),
             "UNDER_REVIEW",
-            result["ai_summary"]
+            result.get("ai_summary")
 
-        ))
+        )
+
+        cursor.execute(insert_claim_query, claim_values)
 
         mysql.connection.commit()
 
+        # Get inserted claim ID
         claim_id = cursor.lastrowid
 
-        # INSERT FRAUD FLAGS
-        for reason in result["reasons"]:
+        # Insert fraud reasons into fraud_flags table
+        for reason in result.get("reasons", []):
 
-            cursor.execute("""
+            insert_flag_query = """
 
             INSERT INTO fraud_flags (
 
@@ -69,13 +82,17 @@ def create_claim():
 
             VALUES (%s,%s,%s)
 
-            """, (
+            """
+
+            flag_values = (
 
                 claim_id,
                 reason,
                 "HIGH"
 
-            ))
+            )
+
+            cursor.execute(insert_flag_query, flag_values)
 
         mysql.connection.commit()
 
@@ -86,7 +103,7 @@ def create_claim():
             "message": "Claim inserted successfully",
             "claim_id": claim_id,
             "fraud_analysis": result
-        })
+        }), 201
 
     except Exception as e:
 
