@@ -7,6 +7,25 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 from services.fraud_engine import analyze_claim
 
+# Mirrors the severity/weight map in routes/claims.py
+def _reason_to_severity_weight(reason: str):
+    r = reason.lower()
+    if "extreme billing outlier" in r:
+        return "HIGH", 95
+    if "critical billing outlier" in r:
+        return "HIGH", 75
+    if "high billing outlier" in r:
+        return "HIGH", 50
+    if "e&m upcoding" in r or "evaluation and management" in r:
+        return "MEDIUM", 45
+    if "severe clinical procedure-diagnosis" in r:
+        return "HIGH", 60
+    if "duplicate claim" in r:
+        return "HIGH", 55
+    if "historical provider fraud" in r:
+        return "MEDIUM", 35
+    return "LOW", 20
+
 def recalculate_historical_claims():
     try:
         print("Connecting to MySQL server...")
@@ -60,11 +79,12 @@ def recalculate_historical_claims():
 
             # Insert the new, rich dynamic flags
             for reason in analysis["reasons"]:
+                severity, weight = _reason_to_severity_weight(reason)
                 insert_flag_query = """
-                    INSERT INTO fraud_flags (claim_id, reason, severity)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO fraud_flags (claim_id, reason, severity, weight)
+                    VALUES (%s, %s, %s, %s)
                 """
-                cursor.execute(insert_flag_query, (claim_id, reason, "HIGH" if analysis["risk_score"] >= 70 else "MEDIUM"))
+                cursor.execute(insert_flag_query, (claim_id, reason, severity, weight))
 
             print(f"   -> Updated Risk Score: {analysis['risk_score']}% ({analysis['risk_level']})")
             print(f"   -> Flagged Reasons: {analysis['reasons']}\n")

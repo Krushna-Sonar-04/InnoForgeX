@@ -56,4 +56,8 @@ export const updateClaimStatusApi = (id, status, auditNotes = '') =>
 export const fetchFraudSummaryApi = (period = 'week') =>
     apiClient.get('/analytics/fraud-summary', { params: { period } });
 
+// ========== Admin ==========
+export const deleteAllClaimsApi = () =>
+    apiClient.delete('/claims');
+
 export default apiClient;

@@ -5,6 +5,25 @@ from services.fraud_engine import analyze_claim
 
 claims_bp = Blueprint("claims", __name__)
 
+# Maps reason keywords → (severity label, weight %) — mirrors fraud_engine.py weights
+def _reason_to_severity_weight(reason: str):
+    r = reason.lower()
+    if "extreme billing outlier" in r:
+        return "HIGH", 95
+    if "critical billing outlier" in r:
+        return "HIGH", 75
+    if "high billing outlier" in r:
+        return "HIGH", 50
+    if "e&m upcoding" in r or "evaluation and management" in r:
+        return "MEDIUM", 45
+    if "severe clinical procedure-diagnosis" in r:
+        return "HIGH", 60
+    if "duplicate claim" in r:
+        return "HIGH", 55
+    if "historical provider fraud" in r:
+        return "MEDIUM", 35
+    return "LOW", 20
+
 
 @claims_bp.route("/claims", methods=["POST"])
 def create_claim():
@@ -74,17 +93,20 @@ def create_claim():
         # Insert fraud reasons into fraud_flags table
         for reason in result.get("reasons", []):
 
+            severity, weight = _reason_to_severity_weight(reason)
+
             insert_flag_query = """
 
             INSERT INTO fraud_flags (
 
                 claim_id,
                 reason,
-                severity
+                severity,
+                weight
 
             )
 
-            VALUES (%s,%s,%s)
+            VALUES (%s,%s,%s,%s)
 
             """
 
@@ -92,7 +114,8 @@ def create_claim():
 
                 claim_id,
                 reason,
-                "HIGH"
+                severity,
+                weight
 
             )
 
@@ -174,10 +197,46 @@ def get_claim_by_id(claim_id):
 def get_fraud_explanation(claim_id):
     try:
         cursor = mysql.connection.cursor()
-        cursor.execute("SELECT reason, severity FROM fraud_flags WHERE claim_id = %s", (claim_id,))
-        reasons = [{"reason": row[0], "severity": row[1]} for row in cursor.fetchall()]
+        # Try to fetch weight column — fall back gracefully if column doesn't exist yet
+        try:
+            cursor.execute("SELECT reason, severity, weight FROM fraud_flags WHERE claim_id = %s", (claim_id,))
+            rows = cursor.fetchall()
+            reasons = []
+            for row in rows:
+                reason, severity, weight = row[0], row[1], row[2]
+                # If weight column is NULL (old rows), compute it from the reason text
+                if weight is None:
+                    _, weight = _reason_to_severity_weight(reason)
+                reasons.append({"reason": reason, "severity": severity, "weight": int(weight)})
+        except Exception:
+            # weight column may not exist on older DB — fall back to reason+severity only
+            cursor.execute("SELECT reason, severity FROM fraud_flags WHERE claim_id = %s", (claim_id,))
+            reasons = []
+            for row in cursor.fetchall():
+                reason, severity = row[0], row[1]
+                _, weight = _reason_to_severity_weight(reason)
+                reasons.append({"reason": reason, "severity": severity, "weight": weight})
+
+        # Also fetch the claim's ai_summary and risk_score for the summary + recommendation
+        cursor.execute("SELECT ai_summary, risk_score FROM claims WHERE id = %s", (claim_id,))
+        claim_row = cursor.fetchone()
         cursor.close()
-        return jsonify({"success": True, "reasons": reasons}), 200
+
+        summary = claim_row[0] if claim_row else "AI detected unusual patterns in this claim."
+        risk_score = int(claim_row[1]) if claim_row and claim_row[1] else 0
+
+        recommendation = (
+            "Recommend immediate manual audit and possible recoupment." if risk_score >= 70
+            else "Recommend standard review before processing." if risk_score >= 40
+            else "Claim appears low risk. Standard processing recommended."
+        )
+
+        return jsonify({
+            "success": True,
+            "summary": summary,
+            "recommendation": recommendation,
+            "reasons": reasons
+        }), 200
     except Exception as e:
         print("DB Error getting fraud explanation:", e)
         return jsonify({"success": False, "error": "Database error"}), 500
@@ -196,4 +255,22 @@ def update_claim_status(claim_id):
         return jsonify({"success": True, "message": "Status updated"}), 200
     except Exception as e:
         print("DB Error updating claim status:", e)
+        return jsonify({"success": False, "error": "Database error"}), 500
+
+
+@claims_bp.route("/claims", methods=["DELETE"])
+def delete_all_claims():
+    """Delete all claims and their associated fraud flags (admin use only)."""
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("DELETE FROM fraud_flags")
+        cursor.execute("DELETE FROM claims")
+        # Reset auto-increment so IDs start from 1 again
+        cursor.execute("ALTER TABLE fraud_flags AUTO_INCREMENT = 1")
+        cursor.execute("ALTER TABLE claims AUTO_INCREMENT = 1")
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"success": True, "message": "All claims deleted successfully"}), 200
+    except Exception as e:
+        print("DB Error deleting all claims:", e)
         return jsonify({"success": False, "error": "Database error"}), 500

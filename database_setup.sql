@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS fraud_flags (
     claim_id INT NOT NULL,
     reason VARCHAR(255) NOT NULL,
     severity VARCHAR(20) DEFAULT 'MEDIUM',
+    weight INT DEFAULT 20,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (claim_id) REFERENCES claims(id) ON DELETE CASCADE
 );
