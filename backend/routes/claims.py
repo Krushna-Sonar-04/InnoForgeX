@@ -20,10 +20,10 @@ def create_claim():
                 "message": "No data provided"
             }), 400
 
-        # Run fraud analysis
-        result = analyze_claim(data)
-
         cursor = mysql.connection.cursor()
+
+        # Run fraud analysis
+        result = analyze_claim(data, cursor)
 
         # Insert into claims table
         insert_claim_query = """
