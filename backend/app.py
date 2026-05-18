@@ -6,6 +6,7 @@ from database.db import mysql
 from routes.claims import claims_bp
 from routes.dashboard import dashboard_bp
 from routes.fraud import fraud_bp
+from routes.auth import auth_bp
 
 app = Flask(__name__)
 
@@ -18,9 +19,10 @@ app.config.from_pyfile('config.py')
 mysql.init_app(app)
 
 # REGISTER ROUTES
-app.register_blueprint(claims_bp)
-app.register_blueprint(dashboard_bp)
-app.register_blueprint(fraud_bp)
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(claims_bp, url_prefix='/api')
+app.register_blueprint(dashboard_bp, url_prefix='/api')
+app.register_blueprint(fraud_bp, url_prefix='/api')
 
 @app.route("/")
 def home():
