@@ -31,7 +31,9 @@ def create_claim():
         INSERT INTO claims (
 
             patient_id,
+            patient_name,
             provider_id,
+            provider_name,
             amount,
             diagnosis,
             procedure_code,
@@ -42,14 +44,16 @@ def create_claim():
 
         )
 
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 
         """
 
         claim_values = (
 
             data.get("patient_id"),
+            data.get("patient_name"),
             data.get("provider_id"),
+            data.get("provider_name"),
             data.get("amount"),
             data.get("diagnosis"),
             data.get("procedure_code"),
@@ -116,41 +120,55 @@ def create_claim():
 def get_claims():
     try:
         cursor = mysql.connection.cursor()
-        cursor.execute("SELECT id, patient_id, provider_id, amount, risk_score, risk_level, status, created_at FROM claims ORDER BY created_at DESC")
+        cursor.execute("SELECT id, patient_id, patient_name, provider_id, provider_name, amount, risk_score, risk_level, status, created_at FROM claims ORDER BY created_at DESC")
         claims = []
         for row in cursor.fetchall():
             claims.append({
                 "id": row[0],
-                "patient": row[1],
-                "provider": row[2],
-                "amount": float(row[3]) if row[3] else 0,
-                "risk": float(row[4]) if row[4] else 0,
-                "risk_level": row[5],
-                "status": row[6].lower() if row[6] else 'pending',
-                "time": str(row[7])
+                "patientId": row[1],
+                "patient": row[2] or row[1], # Fallback to ID if name is missing
+                "providerId": row[3],
+                "provider": row[4] or row[3],
+                "amount": float(row[5]) if row[5] else 0,
+                "risk": float(row[6]) if row[6] else 0,
+                "risk_level": row[7],
+                "status": row[8].lower() if row[8] else 'pending',
+                "time": str(row[9])
             })
         cursor.close()
         return jsonify(claims), 200
     except Exception as e:
         print("DB Error getting claims:", e)
-        # Mock response to keep frontend working
-        return jsonify([
-            { "id": "CLM-10042", "patient": "Emily Rodriguez", "provider": "Sunrise Medical", "amount": 12450, "risk": 94, "status": "flagged", "time": "2h ago" },
-            { "id": "CLM-10038", "patient": "Michael Chen", "provider": "Advanced Ortho", "amount": 8750, "risk": 88, "status": "pending", "time": "4h ago" },
-        ]), 200
+        return jsonify({"success": False, "error": "Database error"}), 500
 
 @claims_bp.route("/claims/<claim_id>", methods=["GET"])
 def get_claim_by_id(claim_id):
     try:
         cursor = mysql.connection.cursor()
-        cursor.execute("SELECT * FROM claims WHERE id = %s", (claim_id,))
+        cursor.execute("SELECT id, patient_id, patient_name, provider_id, provider_name, amount, diagnosis, procedure_code, risk_score, risk_level, status, ai_summary, created_at FROM claims WHERE id = %s", (claim_id,))
         row = cursor.fetchone()
         cursor.close()
         if row:
-            return jsonify({"success": True, "claim": {"id": row[0], "status": row[7]}}), 200
+            claim_data = {
+                "id": row[0],
+                "patientId": row[1],
+                "patientName": row[2],
+                "providerId": row[3],
+                "providerName": row[4],
+                "amount": float(row[5]) if row[5] else 0,
+                "diagnosis": row[6],
+                "procedure_code": row[7],
+                "risk": int(row[8]) if row[8] else 0,
+                "riskLevel": row[9],
+                "status": row[10].lower() if row[10] else 'pending',
+                "ai_summary": row[11],
+                "time": str(row[12]) if len(row) > 12 else None
+            }
+            return jsonify({"success": True, "claim": claim_data}), 200
         return jsonify({"success": False, "error": "Claim not found"}), 404
     except Exception as e:
-        return jsonify({"success": True, "claim": {"id": claim_id, "status": "flagged", "patient": "Mock Patient"}}), 200
+        print("DB Error getting claim by id:", e)
+        return jsonify({"success": False, "error": "Database error"}), 500
 
 @claims_bp.route("/claims/<claim_id>/fraud-explanation", methods=["GET"])
 def get_fraud_explanation(claim_id):
@@ -161,7 +179,8 @@ def get_fraud_explanation(claim_id):
         cursor.close()
         return jsonify({"success": True, "reasons": reasons}), 200
     except Exception as e:
-        return jsonify({"success": True, "reasons": [{"reason": "Multiple similar claims in short period", "severity": "HIGH"}]}), 200
+        print("DB Error getting fraud explanation:", e)
+        return jsonify({"success": False, "error": "Database error"}), 500
 
 @claims_bp.route("/claims/<claim_id>/status", methods=["PATCH"])
 def update_claim_status(claim_id):
@@ -176,4 +195,5 @@ def update_claim_status(claim_id):
         cursor.close()
         return jsonify({"success": True, "message": "Status updated"}), 200
     except Exception as e:
-        return jsonify({"success": True, "message": "Mock status updated"}), 200
+        print("DB Error updating claim status:", e)
+        return jsonify({"success": False, "error": "Database error"}), 500

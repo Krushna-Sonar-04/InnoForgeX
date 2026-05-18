@@ -54,7 +54,9 @@ export default function SubmitClaim() {
         try {
             const payload = {
                 patient_id: formData.patientId,
+                patient_name: formData.patientName,
                 provider_id: formData.providerId,
+                provider_name: formData.providerName,
                 amount: parseFloat(formData.claimAmount),
                 diagnosis: formData.diagnosisCode,
                 procedure_code: formData.procedureCode

@@ -12,7 +12,7 @@ export default function Dashboard() {
         const loadData = async () => {
             try {
                 const [summaryRes, claimsRes] = await Promise.all([
-                    fetchFraudSummaryApi(),
+                    fetchFraudSummaryApi(selectedPeriod),
                     fetchClaimsApi()
                 ]);
                 setData({
@@ -25,7 +25,7 @@ export default function Dashboard() {
             }
         };
         loadData();
-    }, []);
+    }, [selectedPeriod]);
 
     if (!data) {
         return (
@@ -37,8 +37,14 @@ export default function Dashboard() {
 
     const { summary, claimsData, recentClaims } = data;
     const todayAmount = claimsData.length > 0 ? claimsData[claimsData.length - 1].amount : 0;
-    const yesterdayAmount = claimsData.length > 1 ? claimsData[claimsData.length - 2].amount : 1;
-    const percentChange = yesterdayAmount ? (((todayAmount - yesterdayAmount) / yesterdayAmount) * 100).toFixed(0) : 0;
+    const yesterdayAmount = claimsData.length > 1 ? claimsData[claimsData.length - 2].amount : 0;
+    
+    let percentChange = 0;
+    if (yesterdayAmount === 0 && todayAmount > 0) {
+        percentChange = 100;
+    } else if (yesterdayAmount > 0) {
+        percentChange = (((todayAmount - yesterdayAmount) / yesterdayAmount) * 100).toFixed(0);
+    }
 
     return (
         <div className="max-w-[1400px] mx-auto space-y-5 page-transition">
@@ -183,10 +189,10 @@ export default function Dashboard() {
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-5">
                 {[
-                    { label: 'Total Claims', value: summary?.total_claims || 0, change: '+8.2%', color: 'blue' },
-                    { label: 'Flagged', value: summary?.flagged_claims || 0, change: '+15.3%', color: 'red' },
-                    { label: 'Fraud Rate', value: `${summary?.fraud_rate || 0}%`, change: '+5.4%', color: 'yellow' },
-                    { label: 'Avg Risk', value: summary?.avg_risk || 0, change: '-2.1%', color: 'purple' },
+                    { label: 'Total Claims', value: summary?.total_claims || 0, change: summary?.changes?.total_claims || '0%', color: 'blue' },
+                    { label: 'Flagged', value: summary?.flagged_claims || 0, change: summary?.changes?.flagged_claims || '0%', color: 'red' },
+                    { label: 'Fraud Rate', value: `${summary?.fraud_rate || 0}%`, change: summary?.changes?.fraud_rate || '0%', color: 'yellow' },
+                    { label: 'Avg Risk', value: summary?.avg_risk || 0, change: summary?.changes?.avg_risk || '0%', color: 'purple' },
                 ].map((stat, idx) => (
                     <div 
                         key={stat.label}
@@ -195,7 +201,9 @@ export default function Dashboard() {
                     >
                         <span className="text-sm text-gray-500">{stat.label}</span>
                         <div className="text-3xl font-bold text-gray-900 my-2">{stat.value}</div>
-                        <div className="text-xs text-green-600 font-medium">{stat.change}</div>
+                        <div className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : 'text-gray-500'}`}>
+                            {stat.change}
+                        </div>
                     </div>
                 ))}
             </div>

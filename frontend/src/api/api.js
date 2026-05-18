@@ -53,7 +53,7 @@ export const updateClaimStatusApi = (id, status, auditNotes = '') =>
     apiClient.patch(`/claims/${id}/status`, { status, auditNotes });
 
 // ========== Fraud scoring & analytics ==========
-export const fetchFraudSummaryApi = () =>
-    apiClient.get('/analytics/fraud-summary');
+export const fetchFraudSummaryApi = (period = 'week') =>
+    apiClient.get('/analytics/fraud-summary', { params: { period } });
 
 export default apiClient;

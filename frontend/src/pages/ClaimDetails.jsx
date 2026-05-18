@@ -24,21 +24,21 @@ export default function ClaimDetails() {
                 
                 setClaim({
                     id: claimData.id || id,
-                    patientName: claimData.patient || 'Unknown Patient',
-                    patientId: 'P-12345',
-                    providerName: 'Sunrise Medical Group',
-                    providerId: 'PROV-9876',
-                    providerNpi: '1234567890',
-                    serviceCode: '99213',
-                    diagnosisCode: 'M54.5',
-                    diagnosisDescription: 'Low back pain',
-                    amount: claimData.amount || 12450.00,
-                    dateOfService: claimData.time || '2025-05-15',
-                    dateSubmitted: claimData.time || '2025-05-16',
-                    riskScore: claimData.risk || 94,
-                    riskLevel: claimData.riskLevel || 'high',
+                    patientName: claimData.patientName || claimData.patientId || 'Unknown Patient',
+                    patientId: claimData.patientId || 'Unknown',
+                    providerName: claimData.providerName || claimData.providerId || 'Unknown Provider',
+                    providerId: claimData.providerId || 'Unknown',
+                    providerNpi: 'N/A',
+                    serviceCode: claimData.procedure_code || 'N/A',
+                    diagnosisCode: claimData.diagnosis || 'N/A',
+                    diagnosisDescription: 'N/A',
+                    amount: claimData.amount || 0,
+                    dateOfService: claimData.time || 'N/A',
+                    dateSubmitted: claimData.time || 'N/A',
+                    riskScore: claimData.risk || 0,
+                    riskLevel: claimData.riskLevel || 'low',
                     status: claimData.status || 'pending',
-                    description: 'Patient presented with chronic back pain. MRI recommended.',
+                    description: claimData.ai_summary || '',
                 });
                 
                 if (expRes.data && expRes.data.reasons) {
@@ -325,7 +325,7 @@ export default function ClaimDetails() {
                         <div className="space-y-3">
                             <button
                                 onClick={() => handleAuditDecision('approved')}
-                                disabled={updating || claim.status !== 'pending'}
+                                disabled={updating || (claim.status !== 'pending' && claim.status !== 'under_review')}
                                 className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white font-medium rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +335,7 @@ export default function ClaimDetails() {
                             </button>
                             <button
                                 onClick={() => handleAuditDecision('rejected')}
-                                disabled={updating || claim.status !== 'pending'}
+                                disabled={updating || (claim.status !== 'pending' && claim.status !== 'under_review')}
                                 className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white font-medium rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,7 +345,7 @@ export default function ClaimDetails() {
                             </button>
                             <button
                                 onClick={() => handleAuditDecision('escalated')}
-                                disabled={updating || claim.status !== 'pending'}
+                                disabled={updating || (claim.status !== 'pending' && claim.status !== 'under_review')}
                                 className="w-full py-3 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,9 +354,9 @@ export default function ClaimDetails() {
                                 Escalate for Review
                             </button>
                             {updating && <p className="text-center text-sm text-gray-600">Updating status...</p>}
-                            {claim.status !== 'pending' && (
-                                <p className="text-center text-sm text-gray-600 mt-2">
-                                    This claim has been {claim.status}
+                            {(claim.status !== 'pending' && claim.status !== 'under_review') && (
+                                <p className="text-center text-sm font-medium mt-3 px-3 py-2 rounded-lg bg-gray-50 text-gray-700">
+                                    Decision final: This claim is {claim.status.toUpperCase()}
                                 </p>
                             )}
                         </div>
