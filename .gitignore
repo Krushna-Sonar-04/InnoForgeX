@@ -1,8 +1,38 @@
+# Dependencies
 node_modules/
 frontend/node_modules/
+
+# Build outputs
 dist/
 frontend/dist/
+
+# Environment files
 .env
 .env.local
-.DS_Store
+.env.*.local
+
+# Logs
 *.log
+frontend/src/logs/
+
+# Python cache
+__pycache__/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Root-level leftovers (not part of project structure)
+/src/
+/package.json
+/package-lock.json
+/requirements.txt
+/README.md
