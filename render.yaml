@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: fraud-detection-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: GROQ_API_KEY
+        sync: false           # Set manually in Render dashboard
+      - key: GROQ_MODEL
+        value: llama3-8b-8192
+      - key: FRONTEND_URL
+        sync: false           # Set to your Vercel URL after deploy
+      - key: SECRET_KEY
+        generateValue: true   # Render auto-generates this
+      - key: JWT_SECRET_KEY
+        generateValue: true
