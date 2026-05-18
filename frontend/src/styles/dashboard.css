@@ -1,0 +1,67 @@
+/* Dashboard specific styles – cards, KPIs, charts, fraud meter */
+@import 'tailwindcss';
+
+@layer components {
+    /* KPI Stats Card */
+    .stats-card {
+        @apply bg-gray-800 rounded-xl p-6 shadow-lg transition-smooth hover:shadow-xl hover:bg-gray-750 border border-gray-700;
+    }
+
+    .stats-card-icon {
+        @apply p-3 rounded-full bg-gray-700 text-blue-400;
+    }
+
+    /* Fraud Meter container */
+    .fraud-meter-container {
+        @apply relative inline-flex items-center justify-center;
+    }
+
+    /* Chart tooltips – override Recharts default for dark theme */
+    .recharts-tooltip-wrapper {
+        @apply bg-gray-800 border border-gray-700 rounded-lg shadow-xl;
+    }
+
+    .recharts-default-tooltip {
+        @apply bg-gray-800 !important;
+        border: none !important;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    .recharts-tooltip-label {
+        @apply text-gray-300 font-medium !important;
+    }
+
+    .recharts-tooltip-item {
+        @apply text-gray-200 !important;
+    }
+
+    /* Dashboard section headers */
+    .dashboard-section-header {
+        @apply text-xl font-semibold text-white border-b border-gray-700 pb-2 mb-4;
+    }
+
+    /* Quick insight cards */
+    .insight-card {
+        @apply bg-gray-800 rounded-lg p-4 border-l-4 transition-smooth hover:bg-gray-750;
+    }
+
+    .insight-card-high-risk {
+        @apply border-l-red-500;
+    }
+
+    .insight-card-medium-risk {
+        @apply border-l-yellow-500;
+    }
+
+    .insight-card-low-risk {
+        @apply border-l-green-500;
+    }
+
+    /* Responsive dashboard grid adjustments */
+    @media (max-width: 768px) {
+        .stats-card {
+            @apply p-4;
+        }
+    }
+}
