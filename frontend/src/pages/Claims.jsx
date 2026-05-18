@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { fetchClaimsApi } from '../api/api';
 
 export default function Claims() {
     const [claims, setClaims] = useState([]);
@@ -8,18 +9,18 @@ export default function Claims() {
     const [statusFilter, setStatusFilter] = useState('all');
 
     useEffect(() => {
-        const mockClaims = [
-            { id: 'CLM-10042', patient: 'Emily Rodriguez', provider: 'Sunrise Medical Group', amount: 12450, date: '2025-05-15', risk: 94, status: 'flagged', location: 'California' },
-            { id: 'CLM-10038', patient: 'Michael Chen', provider: 'Advanced Orthopedics', amount: 8750, date: '2025-05-14', risk: 88, status: 'pending', location: 'New York' },
-            { id: 'CLM-10035', patient: 'Sarah Johnson', provider: 'City General Hospital', amount: 15200, date: '2025-05-12', risk: 91, status: 'flagged', location: 'Texas' },
-            { id: 'CLM-10029', patient: 'David Kim', provider: 'Metro Physicians', amount: 5300, date: '2025-05-10', risk: 76, status: 'pending', location: 'Florida' },
-            { id: 'CLM-10022', patient: 'Lisa Brown', provider: 'Wellness Clinic', amount: 21800, date: '2025-05-08', risk: 95, status: 'review', location: 'Illinois' },
-            { id: 'CLM-10019', patient: 'James Wilson', provider: 'Heart Specialists', amount: 3450, date: '2025-05-05', risk: 32, status: 'approved', location: 'Ohio' },
-            { id: 'CLM-10015', patient: 'Maria Garcia', provider: 'Family Care Center', amount: 2100, date: '2025-05-03', risk: 45, status: 'pending', location: 'Arizona' },
-            { id: 'CLM-10008', patient: 'Robert Taylor', provider: 'Ortho Center', amount: 7800, date: '2025-04-28', risk: 68, status: 'flagged', location: 'Nevada' },
-        ];
-        setClaims(mockClaims);
-        setFilteredClaims(mockClaims);
+        const loadClaims = async () => {
+            try {
+                const res = await fetchClaimsApi();
+                // Ensure data is array
+                const data = Array.isArray(res.data) ? res.data : [];
+                setClaims(data);
+                setFilteredClaims(data);
+            } catch (error) {
+                console.error("Failed to load claims", error);
+            }
+        };
+        loadClaims();
     }, []);
 
     useEffect(() => {
@@ -132,13 +133,13 @@ export default function Claims() {
                                     <td className="py-4 px-6">
                                         <div>
                                             <div className="text-sm font-medium text-gray-900">{claim.id}</div>
-                                            <div className="text-xs text-gray-500">{new Date(claim.date).toLocaleDateString()}</div>
+                                            <div className="text-xs text-gray-500">{claim.time || 'N/A'}</div>
                                         </div>
                                     </td>
                                     <td className="py-4 px-6">
                                         <div>
                                             <div className="text-sm text-gray-900">{claim.patient}</div>
-                                            <div className="text-xs text-gray-500">{claim.location}</div>
+                                            <div className="text-xs text-gray-500">{claim.location || 'Unknown'}</div>
                                         </div>
                                     </td>
                                     <td className="py-4 px-6">

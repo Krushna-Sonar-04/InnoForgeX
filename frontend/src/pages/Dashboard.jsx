@@ -2,29 +2,29 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-const generateMockData = () => {
-    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const claimsData = weekDays.map((day, idx) => ({
-        day,
-        amount: 800 + Math.floor(Math.random() * 400),
-        flagged: 15 + Math.floor(Math.random() * 25),
-    }));
-
-    const recentClaims = [
-        { id: 'CLM-10042', patient: 'Emily Rodriguez', provider: 'Sunrise Medical', amount: 12450, risk: 94, status: 'flagged', time: '2h ago' },
-        { id: 'CLM-10038', patient: 'Michael Chen', provider: 'Advanced Ortho', amount: 8750, risk: 88, status: 'pending', time: '4h ago' },
-        { id: 'CLM-10035', patient: 'Sarah Johnson', provider: 'City General', amount: 15200, risk: 91, status: 'flagged', time: '6h ago' },
-    ];
-
-    return { claimsData, recentClaims };
-};
+import { fetchFraudSummaryApi, fetchClaimsApi } from '../api/api';
 
 export default function Dashboard() {
     const [data, setData] = useState(null);
     const [selectedPeriod, setSelectedPeriod] = useState('week');
 
     useEffect(() => {
-        setTimeout(() => setData(generateMockData()), 300);
+        const loadData = async () => {
+            try {
+                const [summaryRes, claimsRes] = await Promise.all([
+                    fetchFraudSummaryApi(),
+                    fetchClaimsApi()
+                ]);
+                setData({
+                    summary: summaryRes.data,
+                    claimsData: summaryRes.data.trends || [],
+                    recentClaims: claimsRes.data.slice(0, 5) // Get latest 5 claims
+                });
+            } catch (error) {
+                console.error("Dashboard failed to load", error);
+            }
+        };
+        loadData();
     }, []);
 
     if (!data) {
@@ -35,10 +35,10 @@ export default function Dashboard() {
         );
     }
 
-    const { claimsData, recentClaims } = data;
-    const todayAmount = claimsData[2].amount;
-    const yesterdayAmount = claimsData[1].amount;
-    const percentChange = (((todayAmount - yesterdayAmount) / yesterdayAmount) * 100).toFixed(0);
+    const { summary, claimsData, recentClaims } = data;
+    const todayAmount = claimsData.length > 0 ? claimsData[claimsData.length - 1].amount : 0;
+    const yesterdayAmount = claimsData.length > 1 ? claimsData[claimsData.length - 2].amount : 1;
+    const percentChange = yesterdayAmount ? (((todayAmount - yesterdayAmount) / yesterdayAmount) * 100).toFixed(0) : 0;
 
     return (
         <div className="max-w-[1400px] mx-auto space-y-5 page-transition">
@@ -183,10 +183,10 @@ export default function Dashboard() {
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-5">
                 {[
-                    { label: 'Total Claims', value: '915', change: '+8.2%', color: 'blue' },
-                    { label: 'Flagged', value: '85', change: '+15.3%', color: 'red' },
-                    { label: 'Fraud Rate', value: '9.3%', change: '+5.4%', color: 'yellow' },
-                    { label: 'Avg Risk', value: '34.2', change: '-2.1%', color: 'purple' },
+                    { label: 'Total Claims', value: summary?.total_claims || 0, change: '+8.2%', color: 'blue' },
+                    { label: 'Flagged', value: summary?.flagged_claims || 0, change: '+15.3%', color: 'red' },
+                    { label: 'Fraud Rate', value: `${summary?.fraud_rate || 0}%`, change: '+5.4%', color: 'yellow' },
+                    { label: 'Avg Risk', value: summary?.avg_risk || 0, change: '-2.1%', color: 'purple' },
                 ].map((stat, idx) => (
                     <div 
                         key={stat.label}

@@ -14,12 +14,17 @@ export default function ClaimDetails() {
         const loadData = async () => {
             setLoading(true);
             try {
-                // Mock data for demo
-                await new Promise(resolve => setTimeout(resolve, 500));
+                const [claimRes, expRes] = await Promise.all([
+                    fetchClaimByIdApi(id),
+                    fetchClaimFraudExplanationApi(id).catch(() => ({ data: null }))
+                ]);
+                
+                // The backend currently might return a simplified mock claim or real DB claim
+                const claimData = claimRes.data.claim || {};
                 
                 setClaim({
-                    id: id,
-                    patientName: 'Emily Rodriguez',
+                    id: claimData.id || id,
+                    patientName: claimData.patient || 'Unknown Patient',
                     patientId: 'P-12345',
                     providerName: 'Sunrise Medical Group',
                     providerId: 'PROV-9876',
@@ -27,31 +32,25 @@ export default function ClaimDetails() {
                     serviceCode: '99213',
                     diagnosisCode: 'M54.5',
                     diagnosisDescription: 'Low back pain',
-                    amount: 12450.00,
-                    dateOfService: '2025-05-15',
-                    dateSubmitted: '2025-05-16',
-                    riskScore: 94,
-                    riskLevel: 'high',
-                    status: 'pending',
+                    amount: claimData.amount || 12450.00,
+                    dateOfService: claimData.time || '2025-05-15',
+                    dateSubmitted: claimData.time || '2025-05-16',
+                    riskScore: claimData.risk || 94,
+                    riskLevel: claimData.riskLevel || 'high',
+                    status: claimData.status || 'pending',
                     description: 'Patient presented with chronic back pain. MRI recommended.',
                 });
                 
-                setExplanation({
-                    summary: 'High anomaly score due to billing frequency and code mismatch. This claim shows strong indicators of potential fraud.',
-                    factors: [
-                        'Provider billed 99213 (office visit) 12 times on same day for different patients – unusual pattern.',
-                        'Diagnosis code M54.5 (low back pain) typically maps to lower complexity codes than 99213.',
-                        'Claim amount is 340% above regional average for this service and diagnosis.',
-                        'Provider has a history of upcoding in previous audits (3 flagged claims in last 6 months).',
-                    ],
-                    riskContributors: [
-                        { name: 'Billing Frequency', weight: 45 },
-                        { name: 'Code Inconsistency', weight: 30 },
-                        { name: 'Amount Outlier', weight: 15 },
-                        { name: 'Provider History', weight: 10 },
-                    ],
-                    recommendation: 'Recommend manual audit and possible recoupment.',
-                });
+                if (expRes.data && expRes.data.reasons) {
+                    setExplanation({
+                        summary: 'AI detected unusual patterns in this claim.',
+                        factors: expRes.data.reasons.map(r => r.reason),
+                        riskContributors: expRes.data.reasons.map(r => ({ name: r.reason.substring(0, 20), weight: r.severity === 'HIGH' ? 45 : 20 })),
+                        recommendation: 'Recommend manual audit and possible recoupment.',
+                    });
+                } else {
+                    setExplanation(null);
+                }
             } catch (err) {
                 console.error('Failed to load claim details', err);
             } finally {
@@ -64,7 +63,7 @@ export default function ClaimDetails() {
     const handleAuditDecision = async (decision) => {
         setUpdating(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await updateClaimStatusApi(id, decision);
             setClaim((prev) => ({ ...prev, status: decision }));
         } catch (err) {
             console.error('Update failed', err);

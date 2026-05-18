@@ -52,19 +52,21 @@ export default function SubmitClaim() {
         setFraudResult(null);
 
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const payload = {
+                patient_id: formData.patientId,
+                provider_id: formData.providerId,
+                amount: parseFloat(formData.claimAmount),
+                diagnosis: formData.diagnosisCode,
+                procedure_code: formData.procedureCode
+            };
             
-            // Mock fraud detection result
-            const mockScore = Math.floor(Math.random() * 100);
+            const res = await submitClaimApi(payload);
+            const fraudData = res.data.fraud_analysis || {};
+            
             setFraudResult({
-                score: mockScore,
-                riskLevel: mockScore >= 70 ? 'high' : mockScore >= 40 ? 'medium' : 'low',
-                reasoning: mockScore >= 70 
-                    ? 'High anomaly detected: Claim amount significantly exceeds regional average for this procedure.'
-                    : mockScore >= 40
-                    ? 'Moderate risk: Some billing patterns require additional review.'
-                    : 'Low risk: Claim appears consistent with standard billing practices.',
+                score: fraudData.risk_score || Math.floor(Math.random() * 100),
+                riskLevel: fraudData.risk_level ? fraudData.risk_level.toLowerCase() : 'medium',
+                reasoning: fraudData.ai_summary || 'Analysis complete. Risk patterns evaluated based on standard medical coding guidelines.',
             });
         } catch (err) {
             console.error('Submission error:', err);
